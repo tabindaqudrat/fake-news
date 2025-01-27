@@ -34,7 +34,7 @@ class EnhancedNewsDetector:
                 page_content = self.extract_page_content(item['link'])
                 similarity_score = self.calculate_similarity(query, page_content)
 
-                if similarity_score > 0.6:  # Similarity threshold
+                if similarity_score > 0.8:  # Similarity threshold
                     verified_results.append({
                         'title': item['title'],
                         'url': item['link'],
