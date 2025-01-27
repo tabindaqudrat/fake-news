@@ -1,17 +1,19 @@
 import streamlit as st
 import requests
-import torch
+from bs4 import BeautifulSoup
 from transformers import pipeline
 from urllib.parse import urlparse
 import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Google Search API credentials
-GOOGLE_API_KEY = "AIzaSyAH7A8iVDIqssN8gRA-KFnAYJEiOKoPEW0"
-GOOGLE_CX = "075b1f42a94214065"
+# Google Search API credentials (replace with your own)
+GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY"
+GOOGLE_CX = "YOUR_CSE_ID"
 
 class EnhancedNewsDetector:
     def __init__(self):
-        # Initialize the model with error handling
+        # Initialize the fake news detection model
         try:
             self.MODEL = "jy46604790/Fake-News-Bert-Detect"
             self.classifier = pipeline("text-classification", model=self.MODEL, tokenizer=self.MODEL)
@@ -19,88 +21,95 @@ class EnhancedNewsDetector:
             st.error(f"Error loading model: {e}")
             self.classifier = None
 
-        # List of verified news sources in Pakistan
-        self.verified_sources = {
-            'dawn.com': {'name': 'Dawn News', 'reliability': 0.9},
-            'tribune.com.pk': {'name': 'Express Tribune', 'reliability': 0.9},
-            'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
-            'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
-            'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
-            'app.com.pk': {'name': 'Associated Press of Pakistan', 'reliability': 0.9},
-            'radio.gov.pk': {'name': 'Radio Pakistan', 'reliability': 0.85},
-            'brecorder.com': {'name': 'Business Recorder', 'reliability': 0.8}
-        }
-
     def google_search(self, query):
-        """Search Google Custom Search for the news article"""
+        """Perform Google search and fetch credible news articles."""
         search_url = f"https://www.googleapis.com/customsearch/v1?q={query}&key={GOOGLE_API_KEY}&cx={GOOGLE_CX}"
         try:
             response = requests.get(search_url)
             response.raise_for_status()
-            return response.json().get('items', [])
+            search_results = response.json().get('items', [])
+
+            verified_results = []
+            for item in search_results[:5]:  # Analyze top 5 results
+                page_content = self.extract_page_content(item['link'])
+                similarity_score = self.calculate_similarity(query, page_content)
+
+                if similarity_score > 0.6:  # Similarity threshold
+                    verified_results.append({
+                        'title': item['title'],
+                        'url': item['link'],
+                        'similarity_score': similarity_score
+                    })
+
+            return verified_results
         except Exception as e:
             st.warning(f"Google Search API error: {e}")
             return []
 
-    def verify_news(self, news_text, source_url=None):
-        """Enhanced news verification combining Google Search and AI model analysis"""
-        if not news_text or len(news_text.strip()) == 0:
+    def extract_page_content(self, url):
+        """Extract text content from a news article."""
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers)
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            paragraphs = soup.find_all('p')
+            text_content = ' '.join([para.get_text() for para in paragraphs])
+            return text_content
+        except Exception as e:
+            st.warning(f"Error extracting content from {url}: {e}")
+            return ""
+
+    def calculate_similarity(self, input_text, source_text):
+        """Calculate cosine similarity between input news and extracted content."""
+        if not source_text:
+            return 0.0
+
+        vectorizer = TfidfVectorizer().fit_transform([input_text, source_text])
+        vectors = vectorizer.toarray()
+        similarity = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
+
+        return similarity
+
+    def verify_news(self, news_text):
+        """Enhanced verification combining Google Search and AI model analysis."""
+        if not news_text.strip():
             return {
                 'error': 'Empty news text provided',
                 'is_fake': True,
-                'confidence': 1.0
+                'confidence': 0.0
             }
 
-        results = {
-            'google_search_results': None,
-            'text_analysis': None,
-            'is_fake': None,
-            'confidence': 0.0,
-            'recommendation': ''
-        }
-
-        # 1. Perform Google Search to verify news
-        st.info("Searching credible sources on Google...")
+        st.info("🔍 Searching credible sources on Google...")
         search_results = self.google_search(news_text)
-        results['google_search_results'] = search_results
+        verified_sources = [res for res in search_results if res['similarity_score'] > 0.6]
 
-        if search_results:
-            for res in search_results[:3]:
-                st.write(f"**{res['title']}**")
-                st.write(f"URL: {res['link']}")
+        if verified_sources:
+            result_status = "Likely Real"
+            confidence = max(res['similarity_score'] for res in verified_sources)
+            recommendation = "This news matches credible sources."
         else:
-            st.warning("No related news found on Google.")
+            result_status = "Likely Fake"
+            confidence = 0.3
+            recommendation = "No verification found. Likely to be fake."
 
-        # 2. BERT Model Prediction
-        try:
-            if self.classifier is None:
-                raise ValueError("Model not initialized")
-
+        # AI Model Prediction
+        if self.classifier:
             model_result = self.classifier(news_text)
-            is_fake = model_result[0]['label'] == 'LABEL_0'  # Assuming LABEL_0 is fake
-            model_confidence = model_result[0]['score']
-
-            results['text_analysis'] = {
-                'model_prediction': 'FAKE' if is_fake else 'REAL',
-                'model_confidence': model_confidence
-            }
-
-            results['is_fake'] = is_fake
-            results['confidence'] = model_confidence
-
-        except Exception as e:
-            st.error(f"Error in model prediction: {e}")
-            return results
-
-        # Final Recommendation
-        if search_results and not is_fake:
-            results['recommendation'] = "The news appears reliable based on verified sources."
-        elif search_results and is_fake:
-            results['recommendation'] = "Conflicting information found. Please cross-check."
+            ai_prediction = 'FAKE' if model_result[0]['label'] == 'LABEL_0' else 'REAL'
+            ai_confidence = model_result[0]['score']
         else:
-            results['recommendation'] = "No verification found. Likely to be fake."
+            ai_prediction = 'Unknown'
+            ai_confidence = 0.0
 
-        return results
+        return {
+            'result_status': result_status,
+            'confidence': confidence,
+            'google_verified_links': verified_sources,
+            'ai_prediction': ai_prediction,
+            'ai_confidence': ai_confidence,
+            'recommendation': recommendation
+        }
 
 # Streamlit App
 def main():
@@ -139,55 +148,51 @@ def main():
             return
 
         with st.spinner("Analyzing news article..."):
-            try:
-                result = detector.verify_news(news_text, source_url)
+            result = detector.verify_news(news_text)
 
-                tab1, tab2, tab3 = st.tabs([
-                    "🔍 Google Search Results",
-                    "📊 Content Analysis",
-                    "🚨 Final Assessment"
-                ])
+            tab1, tab2, tab3 = st.tabs([
+                "🔍 Google Search Results",
+                "📊 Content Analysis",
+                "🚨 Final Assessment"
+            ])
 
-                with tab1:
-                    st.subheader("Google Search Results")
-                    if result['google_search_results']:
-                        for item in result['google_search_results']:
-                            st.write(f"**{item['title']}**")
-                            st.write(f"URL: {item['link']}")
-                    else:
-                        st.warning("No search results found.")
+            with tab1:
+                st.subheader("Google Search Results")
+                if result['google_verified_links']:
+                    for item in result['google_verified_links']:
+                        st.write(f"**{item['title']}**")
+                        st.write(f"URL: {item['url']}")
+                        st.write(f"Similarity Score: {item['similarity_score']:.2%}")
+                else:
+                    st.warning("No search results found.")
 
-                with tab2:
-                    st.subheader("Content Analysis")
-                    text_analysis = result['text_analysis']
-                    st.metric(
-                        label="Model Prediction",
-                        value=text_analysis['model_prediction'],
-                        help="AI model's assessment of news authenticity"
-                    )
-                    st.metric(
-                        label="Model Confidence",
-                        value=f"{text_analysis['model_confidence']:.2%}",
-                        help="Confidence level of the AI model's prediction"
-                    )
+            with tab2:
+                st.subheader("Content Analysis")
+                st.metric(
+                    label="AI Model Prediction",
+                    value=result['ai_prediction'],
+                    help="AI model's assessment of news authenticity"
+                )
+                st.metric(
+                    label="Model Confidence",
+                    value=f"{result['ai_confidence']:.2%}",
+                    help="Confidence level of the AI model's prediction"
+                )
 
-                with tab3:
-                    st.subheader("Final Assessment")
-                    if result['is_fake']:
-                        st.error("🚨 FAKE NEWS DETECTED")
-                    else:
-                        st.success("✅ NEWS APPEARS RELIABLE")
+            with tab3:
+                st.subheader("Final Assessment")
+                if result['result_status'] == "Likely Fake":
+                    st.error("🚨 FAKE NEWS DETECTED")
+                else:
+                    st.success("✅ NEWS APPEARS RELIABLE")
 
-                    st.metric(
-                        label="Overall Confidence",
-                        value=f"{result['confidence']:.2%}",
-                        help="Final confidence combining AI model and Google Search"
-                    )
+                st.metric(
+                    label="Overall Confidence",
+                    value=f"{result['confidence']:.2%}",
+                    help="Final confidence combining AI model and Google Search"
+                )
 
-                    st.info(f"🔔 Recommendation: {result['recommendation']}")
-
-            except Exception as e:
-                st.error(f"An error occurred during verification: {e}")
+                st.info(f"🔔 Recommendation: {result['recommendation']}")
 
 if __name__ == "__main__":
     main()
