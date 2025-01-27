@@ -8,8 +8,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Google Search API credentials (replace with your own)
-GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY"
-GOOGLE_CX = "YOUR_CSE_ID"
+GOOGLE_API_KEY = "AIzaSyAH7A8iVDIqssN8gRA-KFnAYJEiOKoPEW0"
+GOOGLE_CX = "075b1f42a94214065"
 
 class EnhancedNewsDetector:
     def __init__(self):
