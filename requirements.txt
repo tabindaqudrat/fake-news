@@ -1,7 +1,18 @@
+# Core dependencies
+streamlit==1.41.1
 pyngrok==7.2.2
 requests==2.32.3
-streamlit==1.41.1
+beautifulsoup4==4.12.3
+scikit-learn==1.4.0
+
+# Deep learning dependencies
+torch==2.2.0
 transformers==4.47.1
-torch
-beautifulsoup4 
-scikit-learn
+sentence-transformers==2.3.1
+
+# Additional required packages
+numpy>=1.24.0
+pandas>=2.2.0
+tqdm>=4.66.1
+nltk>=3.8.1
+protobuf>=4.25.2
