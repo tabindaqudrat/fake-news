@@ -34,7 +34,7 @@ class EnhancedNewsDetector:
                 page_content = self.extract_page_content(item['link'])
                 similarity_score = self.calculate_similarity(query, page_content)
 
-                if similarity_score > 0.8:  # Similarity threshold
+                if similarity_score > 0.65:  # Similarity threshold
                     verified_results.append({
                         'title': item['title'],
                         'url': item['link'],
@@ -160,11 +160,12 @@ def main():
                 st.subheader("Google Search Results")
                 if result['google_verified_links']:
                     for item in result['google_verified_links']:
-                        st.write(f"**{item['title']}**")
-                        st.write(f"URL: {item['url']}")
-                        st.write(f"Similarity Score: {item['similarity_score']:.2%}")
+                    st.markdown(f"### [{item['title']}]({item['url']})")
+                    st.write(f"🔗 URL: {item['url']}")
+                    st.write(f"📊 Similarity Score: {item['similarity_score']:.2%}")
+                    st.write("---")
                 else:
-                    st.warning("No search results found.")
+                    st.warning("⚠ No search results found.")
 
             with tab2:
                 st.subheader("Content Analysis")
