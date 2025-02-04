@@ -160,11 +160,11 @@ def main():
                 st.subheader("Google Search Results")
                 if result['google_verified_links']:
                     for item in result['google_verified_links']:
-                    st.markdown(f"### [{item['title']}]({item['url']})")
-                    st.write(f"🔗 URL: {item['url']}")
-                    st.write(f"📊 Similarity Score: {item['similarity_score']:.2%}")
-                    st.write("---")
-                else:
+                st.markdown(f"### [{item['title']}]({item['url']})")
+                st.write(f"🔗 URL: {item['url']}")
+                st.write(f"📊 Similarity Score: {item['similarity_score']:.2%}")
+                st.write("---")
+            else:
                     st.warning("⚠ No search results found.")
 
             with tab2:
