@@ -1,19 +1,12 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
+import torch
 from transformers import pipeline
 from urllib.parse import urlparse
 import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
-# Google Search API credentials (replace with your own)
-GOOGLE_API_KEY = "AIzaSyAH7A8iVDIqssN8gRA-KFnAYJEiOKoPEW0"
-GOOGLE_CX = "075b1f42a94214065"
 
 class EnhancedNewsDetector:
     def __init__(self):
-        # Initialize the fake news detection model
+        # Initialize the model with error handling
         try:
             self.MODEL = "jy46604790/Fake-News-Bert-Detect"
             self.classifier = pipeline("text-classification", model=self.MODEL, tokenizer=self.MODEL)
@@ -21,115 +14,178 @@ class EnhancedNewsDetector:
             st.error(f"Error loading model: {e}")
             self.classifier = None
 
-    def google_search(self, query):
-        """Perform Google search and fetch credible news articles."""
-        search_url = f"https://www.googleapis.com/customsearch/v1?q={query}&key={GOOGLE_API_KEY}&cx={GOOGLE_CX}"
-        try:
-            response = requests.get(search_url)
-            response.raise_for_status()
-            search_results = response.json().get('items', [])
-
-            verified_results = []
-            for item in search_results[:5]:  # Analyze top 5 results
-                page_content = self.extract_page_content(item['link'])
-                similarity_score = self.calculate_similarity(query, page_content)
-
-                if similarity_score > 0.65:  # Similarity threshold
-                    verified_results.append({
-                        'title': item['title'],
-                        'url': item['link'],
-                        'similarity_score': similarity_score
-                    })
-
-            return verified_results
-        except Exception as e:
-            st.warning(f"Google Search API error: {e}")
-            return []
-
-    def extract_page_content(self, url):
-        """Extract text content from a news article."""
-        try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, headers=headers)
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            paragraphs = soup.find_all('p')
-            text_content = ' '.join([para.get_text() for para in paragraphs])
-            return text_content
-        except Exception as e:
-            st.warning(f"Error extracting content from {url}: {e}")
-            return ""
-
-    def calculate_similarity(self, input_text, source_text):
-        """Calculate cosine similarity between input news and extracted content."""
-        if not source_text:
-            return 0.0
-
-        vectorizer = TfidfVectorizer().fit_transform([input_text, source_text])
-        vectors = vectorizer.toarray()
-        similarity = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
-
-        return similarity
-
-    def verify_news(self, news_text):
-        """Enhanced verification combining Google Search and AI model analysis."""
-        if not news_text.strip():
-            return {
-                'error': 'Empty news text provided',
-                'is_fake': True,
-                'confidence': 0.0
-            }
-
-        st.info("🔍 Searching credible sources on Google...")
-        search_results = self.google_search(news_text)
-        verified_sources = [res for res in search_results if res['similarity_score'] > 0.6]
-
-        if verified_sources:
-            result_status = "Likely Real"
-            confidence = max(res['similarity_score'] for res in verified_sources)
-            recommendation = "This news matches credible sources."
-        else:
-            result_status = "Likely Fake"
-            confidence = 0.3
-            recommendation = "No verification found. Likely to be fake."
-
-        # AI Model Prediction
-        if self.classifier:
-            model_result = self.classifier(news_text)
-            ai_prediction = 'FAKE' if model_result[0]['label'] == 'LABEL_0' else 'REAL'
-            ai_confidence = model_result[0]['score']
-        else:
-            ai_prediction = 'Unknown'
-            ai_confidence = 0.0
-
-        return {
-            'result_status': result_status,
-            'confidence': confidence,
-            'google_verified_links': verified_sources,
-            'ai_prediction': ai_prediction,
-            'ai_confidence': ai_confidence,
-            'recommendation': recommendation
+        # List of verified news sources in Pakistan
+        self.verified_sources = {
+            'dawn.com': {'name': 'Dawn News', 'reliability': 0.9},
+            'tribune.com.pk': {'name': 'Express Tribune', 'reliability': 0.9},
+            'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
+            'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
+            'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
+            'app.com.pk': {'name': 'Associated Press of Pakistan', 'reliability': 0.9},
+            'radio.gov.pk': {'name': 'Radio Pakistan', 'reliability': 0.85},
+            'brecorder.com': {'name': 'Business Recorder', 'reliability': 0.8}
         }
 
+        # Known fake news or unreliable sources
+        self.unreliable_sources = [
+            'facebook.com', 'whatsapp.com', 'telegram.org',
+            'wordpress.com', 'blogspot.com', 'medium.com'
+        ]
+
+    def extract_source_from_text(self, text):
+        """Extract potential source URLs from the text"""
+        urls = re.findall(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[^\s]*', text)
+        if not urls:
+            # Look for website mentions without http/https
+            domain_patterns = re.findall(r'(?:[\w-]+\.)+(?:com|pk|org|net|gov)', text)
+            urls.extend([f"http://{domain}" for domain in domain_patterns])
+            return urls
+
+    def analyze_source(self, text, urls=None):
+           """Analyze the credibility of the news source"""
+           if urls is None:
+               urls = self.extract_source_from_text(text)
+
+           source_analysis = {
+               'is_verified': False,
+               'source_name': 'Unknown',
+               'source_url': '',
+               'reliability_score': 0.0,
+               'warning_flags': []
+           }
+
+           if not urls:
+               source_analysis['warning_flags'].append("No source URL found in the text")
+               return source_analysis
+
+           for url in urls:
+               try:
+                   domain = urlparse(url).netloc.lower()
+                   if domain.startswith('www.'):
+                       domain = domain[4:]
+
+                   # Check if it's a verified source
+                   if domain in self.verified_sources:
+                       return {
+                           'is_verified': True,
+                           'source_name': self.verified_sources[domain]['name'],
+                           'source_url': url,
+                           'reliability_score': self.verified_sources[domain]['reliability'],
+                           'warning_flags': []
+                       }
+
+                   # Check if it's a known unreliable source
+                   if any(unreliable in domain for unreliable in self.unreliable_sources):
+                       return {
+                           'is_verified': False,
+                           'source_name': domain,
+                           'source_url': url,
+                           'reliability_score': 0.2,
+                           'warning_flags': ["Source is from a potentially unreliable platform"]
+                       }
+
+               except Exception as e:
+                   st.warning(f"Error analyzing URL {url}: {e}")
+                   continue
+
+           source_analysis['warning_flags'].append("Source not found in verified news sources")
+           return source_analysis
+
+    def verify_news(self, news_text, source_url=None):
+           """Enhanced news verification with source analysis"""
+           if not news_text or len(news_text.strip()) == 0:
+               return {
+                   'error': 'Empty news text provided',
+                   'is_fake': True,
+                   'confidence': 1.0
+               }
+
+           results = {
+               'text_analysis': None,
+               'source_analysis': None,
+               'is_fake': None,
+               'confidence': 0.0,
+               'warning_flags': [],
+               'recommendation': ''
+           }
+
+           # 1. Source Analysis
+           source_results = self.analyze_source(news_text, [source_url] if source_url else None)
+           results['source_analysis'] = source_results
+
+           # 2. BERT Model Prediction
+           try:
+               if self.classifier is None:
+                   raise ValueError("Model not initialized")
+
+               model_result = self.classifier(news_text)
+               # Convert BERT output to clear fake/real classification
+               is_fake = model_result[0]['label'] == 'LABEL_0'  # Assuming LABEL_0 is fake
+               model_confidence = model_result[0]['score']
+
+               results['text_analysis'] = {
+                   'model_prediction': 'FAKE' if is_fake else 'REAL',
+                   'model_confidence': model_confidence
+               }
+
+           except Exception as e:
+               st.error(f"Error in model prediction: {e}")
+               results['warning_flags'].append("Error in model prediction")
+               return results
+
+           # 3. Combined Analysis
+           source_reliability = source_results['reliability_score']
+
+           # Adjust the final prediction based on source reliability
+           if source_reliability > 0.8 and not is_fake:
+               results['is_fake'] = False
+               results['confidence'] = (model_confidence + source_reliability) / 2
+           elif source_reliability < 0.3 and is_fake:
+               results['is_fake'] = True
+               results['confidence'] = max(model_confidence, 0.8)
+           else:
+               results['is_fake'] = is_fake
+               results['confidence'] = model_confidence * 0.7 + (1 - source_reliability) * 0.3
+
+           # Add warning flags and recommendations
+           if not source_results['is_verified']:
+               results['warning_flags'].append("Unverified news source")
+           if source_reliability < 0.5:
+               results['warning_flags'].append("Low reliability source")
+
+           # Generate recommendation
+           if results['is_fake']:
+               results['recommendation'] = "This news appears to be fake. Please verify with multiple reliable sources."
+           elif results['confidence'] < 0.7:
+               results['recommendation'] = "This news requires additional verification. Check multiple reliable sources."
+           else:
+               results['recommendation'] = "This news appears to be reliable, but it's always good to verify with multiple sources."
+
+           return results
 # Streamlit App
 def main():
+    # Set page configuration
     st.set_page_config(
         page_title="News Verification Assistant",
         page_icon="🕵️",
         layout="wide"
     )
 
+    # Title and description
     st.title("🕵️ News Verification Assistant")
     st.markdown("""
-    ### Detect Fake News with AI-Powered Analysis & Google Search
-    This tool helps you verify the credibility of news articles using AI models and Google Custom Search.
+    ### Detect Fake News with AI-Powered Analysis
+    This tool helps you verify the credibility of news articles using advanced AI techniques.
     """)
 
+    # Initialize the detector
     detector = EnhancedNewsDetector()
 
+    # Input sections
     col1, col2 = st.columns(2)
 
     with col1:
+        # News Text Input
         news_text = st.text_area(
             "Enter the news text:",
             height=300,
@@ -137,63 +193,101 @@ def main():
         )
 
     with col2:
+        # Source URL Input
         source_url = st.text_input(
             "Source URL (Optional)",
             placeholder="https://example.com/news-article"
         )
 
+    # Verification Button
     if st.button("Verify News", type="primary"):
+        # Validate input
         if not news_text.strip():
             st.error("Please enter some news text to verify.")
             return
 
+        # Show loading spinner
         with st.spinner("Analyzing news article..."):
-            result = detector.verify_news(news_text)
+            # Verify the news
+            try:
+                result = detector.verify_news(news_text, source_url)
 
-            tab1, tab2, tab3 = st.tabs([
-                "🔍 Google Search Results",
-                "📊 Content Analysis",
-                "🚨 Final Assessment"
-            ])
+                # Create tabs for different analysis sections
+                tab1, tab2, tab3 = st.tabs([
+                    "🔍 Source Analysis",
+                    "📊 Content Analysis",
+                    "🚨 Final Assessment"
+                ])
 
-            with tab1:
-                st.subheader("Google Search Results")
-                if result['google_verified_links']:
-                    for item in result['google_verified_links']:
-                        st.markdown(f"### [{item['title']}]({item['url']})")
-                        st.write(f"🔗 URL: {item['url']}")
-                        st.write(f"📊 Similarity Score: {item['similarity_score']:.2%}")
-                        st.write("---")
-                else:
-                    st.warning("⚠ No search results found.")
+                with tab1:
+                    st.subheader("Source Analysis")
+                    source_info = result['source_analysis']
 
-            with tab2:
-                st.subheader("Content Analysis")
-                st.metric(
-                    label="AI Model Prediction",
-                    value=result['ai_prediction'],
-                    help="AI model's assessment of news authenticity"
-                )
-                st.metric(
-                    label="Model Confidence",
-                    value=f"{result['ai_confidence']:.2%}",
-                    help="Confidence level of the AI model's prediction"
-                )
+                    # Source Reliability Visualization
+                    st.metric(
+                        label="Source Reliability",
+                        value=f"{source_info['reliability_score']:.2f}/1.00",
+                        help="Reliability score based on known news sources"
+                    )
 
-            with tab3:
-                st.subheader("Final Assessment")
-                if result['result_status'] == "Likely Fake":
-                    st.error("🚨 FAKE NEWS DETECTED")
-                else:
-                    st.success("✅ NEWS APPEARS RELIABLE")
+                    # Verification Status
+                    if source_info['is_verified']:
+                        st.success(f"✅ Verified Source: {source_info['source_name']}")
+                    else:
+                        st.warning("⚠️ Unverified Source")
 
-                st.metric(
-                    label="Overall Confidence",
-                    value=f"{result['confidence']:.2%}",
-                    help="Final confidence combining AI model and Google Search"
-                )
+                    # Warning Flags
+                    if source_info['warning_flags']:
+                        st.error("Warning Flags:")
+                        for flag in source_info['warning_flags']:
+                            st.write(f"- {flag}")
 
-                st.info(f"🔔 Recommendation: {result['recommendation']}")
+                with tab2:
+                    st.subheader("Content Analysis")
+                    text_analysis = result['text_analysis']
 
+                    # Model Prediction Visualization
+                    st.metric(
+                        label="Model Prediction",
+                        value=text_analysis['model_prediction'],
+                        help="AI model's assessment of news authenticity"
+                    )
+
+                    # Confidence Visualization
+                    st.metric(
+                        label="Model Confidence",
+                        value=f"{text_analysis['model_confidence']:.2%}",
+                        help="Confidence level of the AI model's prediction"
+                    )
+
+                with tab3:
+                    st.subheader("Final Assessment")
+
+                    # Fake News Determination
+                    if result['is_fake']:
+                        st.error("🚨 FAKE NEWS DETECTED")
+                    else:
+                        st.success("✅ NEWS APPEARS RELIABLE")
+
+                    # Overall Confidence
+                    st.metric(
+                        label="Overall Confidence",
+                        value=f"{result['confidence']:.2%}",
+                        help="Combined confidence from source and content analysis"
+                    )
+
+                    # Recommendation
+                    st.info(f"🔔 Recommendation: {result['recommendation']}")
+
+                    # Warning Flags
+                    if result['warning_flags']:
+                        st.warning("Additional Warning Flags:")
+                        for flag in result['warning_flags']:
+                            st.write(f"- {flag}")
+
+            except Exception as e:
+                st.error(f"An error occurred during verification: {e}")
+
+# Run the Streamlit app
 if __name__ == "__main__":
     main()
