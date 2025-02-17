@@ -213,7 +213,7 @@ def main():
                 result = detector.verify_news(news_text, source_url)
 
                 # Create tabs for different analysis sections
-                tab1, tab2, tab3 = st.tabs([
+                tab1 = st.tabs([
                     "🔍 Source Analysis",
                     "📊 Content Analysis",
                     "🚨 Final Assessment"
@@ -242,7 +242,7 @@ def main():
                         for flag in source_info['warning_flags']:
                             st.write(f"- {flag}")
 
-                with tab2:
+                    
                     st.subheader("Content Analysis")
                     text_analysis = result['text_analysis']
 
@@ -260,7 +260,7 @@ def main():
                         help="Confidence level of the AI model's prediction"
                     )
 
-                with tab3:
+                
                     st.subheader("Final Assessment")
 
                     # Fake News Determination
