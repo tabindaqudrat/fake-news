@@ -172,7 +172,7 @@ def main():
     )
 
     # Title and description
-    st.title("🕵️ News Verification Assistant")
+    st.title("🕵️ Fact Checker")
     st.markdown("""
     ### Detect Fake News with AI-Powered Analysis
     This tool helps you verify the credibility of news articles using advanced AI techniques.
