@@ -166,7 +166,7 @@ class EnhancedNewsDetector:
 def main():
     # Set page configuration
     st.set_page_config(
-        page_title="News Verification Assistant",
+        page_title="Fact Checker",
         page_icon="🕵️",
         layout="wide"
     )
