@@ -295,6 +295,29 @@ def main():
         )
 
     # Verification Button
+    # Add this code in your main() function
+if st.button("Test API"):
+    st.write("Testing Google Search API...")
+    try:
+        test_query = "Pakistan news test"
+        url = f"https://www.googleapis.com/customsearch/v1?key={detector.API_KEY}&cx={detector.SEARCH_ENGINE_ID}&q={test_query}"
+        response = requests.get(url)
+        
+        st.write(f"Status code: {response.status_code}")
+        if response.status_code == 200:
+            st.success("API is working!")
+            st.write("First few results:")
+            data = response.json()
+            if 'items' in data:
+                for item in data['items'][:3]:
+                    st.write(f"- {item['title']}")
+            else:
+                st.warning("No search results found")
+        else:
+            st.error(f"API error: {response.status_code}")
+            st.write(response.text)
+    except Exception as e:
+        st.error(f"Error testing API: {str(e)}")
     if st.button("Verify News", type="primary"):
         # Validate input
         if not news_text.strip():
