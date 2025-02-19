@@ -166,13 +166,13 @@ class EnhancedNewsDetector:
 def main():
     # Set page configuration
     st.set_page_config(
-        page_title="Fact Checker",
+        page_title="AI-Powered Fake News Detection System",
         page_icon="🕵️",
         layout="wide"
     )
 
     # Title and description
-    st.title("🕵️ Fact Checker")
+    st.title("🕵️ AI-Powered Fake News Detection System")
     st.markdown("""
     ### Detect Fake News with AI-Powered Analysis
     This tool helps you verify the credibility of news articles using advanced AI techniques.
@@ -211,79 +211,80 @@ def main():
             # Verify the news
             try:
                 result = detector.verify_news(news_text, source_url)
-
-                # Create tabs for different analysis sections
-                tab1 = st.tabs([
-                    "🔍 Source Analysis",
-                    "📊 Content Analysis",
-                    "🚨 Final Assessment"
-                ])
-
-                with tab1:
-                    st.subheader("Source Analysis")
-                    source_info = result['source_analysis']
-
+                
+                # Display all verification details on a single page
+                st.markdown("---")
+                
+                # Main verdict section
+                col_verdict, col_confidence = st.columns(2)
+                with col_verdict:
+                    if result['is_fake']:
+                        st.error("### 🚨 FAKE NEWS DETECTED")
+                    else:
+                        st.success("### ✅ NEWS APPEARS RELIABLE")
+                
+                with col_confidence:
+                    st.metric(
+                        label="Overall Confidence",
+                        value=f"{result['confidence']:.2%}",
+                        help="Combined confidence from source and content analysis"
+                    )
+                
+                # Recommendation
+                st.info(f"### Recommendation\n{result['recommendation']}")
+                
+                # Source Analysis Section
+                st.markdown("## 1. Source Analysis")
+                source_info = result['source_analysis']
+                
+                col_source1, col_source2 = st.columns(2)
+                with col_source1:
+                    # Verification Status
+                    if source_info['is_verified']:
+                        st.success(f"✅ Verified Source: {source_info['source_name']}")
+                    else:
+                        st.warning("⚠️ Unverified Source")
+                
+                with col_source2:
                     # Source Reliability Visualization
                     st.metric(
                         label="Source Reliability",
                         value=f"{source_info['reliability_score']:.2f}/1.00",
                         help="Reliability score based on known news sources"
                     )
-
-                    # Verification Status
-                    if source_info['is_verified']:
-                        st.success(f"✅ Verified Source: {source_info['source_name']}")
-                    else:
-                        st.warning("⚠️ Unverified Source")
-
-                    # Warning Flags
-                    if source_info['warning_flags']:
-                        st.error("Warning Flags:")
-                        for flag in source_info['warning_flags']:
-                            st.write(f"- {flag}")
-
-                    
-                    st.subheader("Content Analysis")
-                    text_analysis = result['text_analysis']
-
+                
+                # Warning Flags for Source
+                if source_info['warning_flags']:
+                    st.error("Source Warning Flags:")
+                    for flag in source_info['warning_flags']:
+                        st.write(f"- {flag}")
+                
+                # Content Analysis Section
+                st.markdown("## 2. Content Analysis")
+                text_analysis = result['text_analysis']
+                
+                col_content1, col_content2 = st.columns(2)
+                with col_content1:
                     # Model Prediction Visualization
                     st.metric(
                         label="Model Prediction",
                         value=text_analysis['model_prediction'],
                         help="AI model's assessment of news authenticity"
                     )
-
+                
+                with col_content2:
                     # Confidence Visualization
                     st.metric(
                         label="Model Confidence",
                         value=f"{text_analysis['model_confidence']:.2%}",
                         help="Confidence level of the AI model's prediction"
                     )
-
                 
-                    st.subheader("Final Assessment")
-
-                    # Fake News Determination
-                    if result['is_fake']:
-                        st.error("🚨 FAKE NEWS DETECTED")
-                    else:
-                        st.success("✅ NEWS APPEARS RELIABLE")
-
-                    # Overall Confidence
-                    st.metric(
-                        label="Overall Confidence",
-                        value=f"{result['confidence']:.2%}",
-                        help="Combined confidence from source and content analysis"
-                    )
-
-                    # Recommendation
-                    st.info(f"🔔 Recommendation: {result['recommendation']}")
-
-                    # Warning Flags
-                    if result['warning_flags']:
-                        st.warning("Additional Warning Flags:")
-                        for flag in result['warning_flags']:
-                            st.write(f"- {flag}")
+                # Combined Warning Flags
+                if result['warning_flags']:
+                    st.markdown("## 3. Additional Warning Flags")
+                    for flag in result['warning_flags']:
+                        st.write(f"- {flag}")
 
             except Exception as e:
                 st.error(f"An error occurred during verification: {e}")
