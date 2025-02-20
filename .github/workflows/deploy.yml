@@ -1,0 +1,32 @@
+name: Deploy Fake News Detector
+
+on:
+  push:
+    branches:
+      - main  # Change this if your default branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'  # Change this if needed
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Set Up Environment Variables
+        run: |
+          echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" >> $GITHUB_ENV
+          echo "SEARCH_ENGINE_ID=${{ secrets.SEARCH_ENGINE_ID }}" >> $GITHUB_ENV
+
+      - name: Run Streamlit App (Optional for Debugging)
+        run: |
+          streamlit run app.py --server.headless true
