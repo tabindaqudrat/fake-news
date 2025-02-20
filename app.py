@@ -113,13 +113,6 @@ def main():
         with st.spinner("Analyzing news article..."):
             result = detector.custom_search_verification(news_text)
             st.markdown("---")
-            col_verdict, col_confidence = st.columns(2)
-            with col_verdict:
-                if result.get('verified', False):
-                    st.success("✅ NEWS APPEARS RELIABLE")
-                else:
-                    st.error("🚨 FAKE NEWS DETECTED")
-            
             st.markdown("## 🌐 Sources Checked During Verification")
             searched_domains = result.get('searched_domains', [])
             if searched_domains:
