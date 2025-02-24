@@ -15,24 +15,24 @@ class EnhancedNewsDetector:
             st.error(f"Error loading model: {e}")
             self.classifier = None
 
-        self.API_KEY = st.secrets["GOOGLE_API_KEY"]  
+        self.API_KEY = st.secrets["GOOGLE_API_KEY"]
         self.SEARCH_ENGINE_ID = st.secrets["SEARCH_ENGINE_ID"]
 
         if not self.API_KEY or not self.SEARCH_ENGINE_ID:
             raise ValueError("Environment variables GOOGLE_API_KEY and SEARCH_ENGINE_ID must be set.")
 
-        self.verified_sources = {  # Replace with your actual verified sources
-            'dawn.com': {'name': 'Dawn News', 'reliability': 0.9},
-            'tribune.com.pk': {'name': 'Express Tribune', 'reliability': 0.9},
-            'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
-            'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
-            'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
+        self.verified_sources = {
+            'dawn.com': {'name': 'Dawn News', 'reliability': 0.9},
+            'tribune.com.pk': {'name': 'Express Tribune', 'reliability': 0.9},
+            'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
+            'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
+            'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
         }
 
     def custom_search_verification(self, news_text):
         max_retries = 3
         backoff_time = 2
-        search_query = quote_plus(news_text[:100])  # Encode the query
+        search_query = quote_plus(news_text[:100])
 
         for attempt in range(max_retries):
             try:
@@ -45,7 +45,7 @@ class EnhancedNewsDetector:
                 )
 
                 response = requests.get(url)
-                response.raise_for_status()  # Check for HTTP errors
+                response.raise_for_status()
 
                 search_data = response.json()
                 results = []
@@ -53,7 +53,7 @@ class EnhancedNewsDetector:
                 searched_domains = set()
 
                 if 'items' in search_data:
-                    for item in search_data['items'][:5]:  # Limit to top 5 results
+                    for item in search_data['items'][:5]:
                         result_domain = urlparse(item['link']).netloc.lower()
                         if result_domain.startswith('www.'):
                             result_domain = result_domain[4:]
@@ -81,16 +81,16 @@ class EnhancedNewsDetector:
                 }
 
             except requests.exceptions.RequestException as e:
-                if response.status_code == 429:  # Rate limiting
+                if response.status_code == 429:
                     time.sleep(backoff_time)
                     backoff_time *= 2
                     print("Rate limiting error")
                 else:
-                    return {'error': str(e)}  # Other request error
+                    return {'error': str(e)}
             except Exception as e:
-                return {'error': str(e)}  # Other error (JSON, etc.)
+                return {'error': str(e)}
 
-        return {'error': "Max retries reached. API may be unavailable."}  # Max retries reached
+        return {'error': "Max retries reached. API may be unavailable."}
 
 
 def main():
@@ -174,4 +174,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
