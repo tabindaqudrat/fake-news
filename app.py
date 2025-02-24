@@ -15,8 +15,8 @@ class EnhancedNewsDetector:
             st.error(f"Error loading model: {e}")
             self.classifier = None
 
-        self.API_KEY = os.environ.get("GOOGLE_API_KEY")  # From environment variables
-        self.SEARCH_ENGINE_ID = os.environ.get("SEARCH_ENGINE_ID")
+        self.API_KEY = st.secrets["GOOGLE_API_KEY"]  
+        self.SEARCH_ENGINE_ID = st.secrets["SEARCH_ENGINE_ID"]
 
         if not self.API_KEY or not self.SEARCH_ENGINE_ID:
             raise ValueError("Environment variables GOOGLE_API_KEY and SEARCH_ENGINE_ID must be set.")
