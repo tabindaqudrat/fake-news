@@ -28,7 +28,19 @@ class EnhancedNewsDetector:
             'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
             'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
         }
+    def predict_news(self, news_text):  # This function MUST be in your class
+        if self.classifier is None:
+            return None
 
+        try:
+            result = self.classifier(news_text)[0]
+            label = result['label']
+            score = result['score']
+            return {'label': label, 'score': score}
+        except Exception as e:
+            st.error(f"Error during prediction: {e}")
+            return None
+            
     def custom_search_verification(self, news_text):
         max_retries = 3
         backoff_time = 2
