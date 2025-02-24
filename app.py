@@ -22,9 +22,11 @@ class EnhancedNewsDetector:
             raise ValueError("Environment variables GOOGLE_API_KEY and SEARCH_ENGINE_ID must be set.")
 
         self.verified_sources = {  # Replace with your actual verified sources
-            "bbc.com": {"name": "BBC News", "reliability": 0.95},
-            "cnn.com": {"name": "CNN", "reliability": 0.90},
-            # ... add more verified sources
+            'dawn.com': {'name': 'Dawn News', 'reliability': 0.9},
+            'tribune.com.pk': {'name': 'Express Tribune', 'reliability': 0.9},
+            'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
+            'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
+            'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
         }
 
     def custom_search_verification(self, news_text):
@@ -96,12 +98,17 @@ def main():
     st.title("🕵️ AI-Powered Fake News Detection System")
 
     news_text = st.text_area("Enter the news article text to verify:", height=200)
+    add_source = st.checkbox("Add News Source (Optional)")
+
+    news_source = ""
+    if add_source:
+        news_source = st.text_input("Enter the news source:")
 
     detector = EnhancedNewsDetector()
 
-    if detector.classifier is None:  # Check if model loaded successfully
+    if detector.classifier is None:
         st.error("Model loading failed. Please check your model path and dependencies.")
-        return  # Stop execution if model loading failed
+        return
 
     if st.button("Verify News", type="primary"):
         if not news_text.strip():
@@ -110,14 +117,27 @@ def main():
 
         with st.spinner("Analyzing news article..."):
             try:
-                result = detector.custom_search_verification(news_text)
-                if 'error' in result:
-                    st.error(f"Search API Error: {result['error']}")
+                model_prediction = detector.predict_news(news_text)
+                search_result = detector.custom_search_verification(news_text)
+
+                if model_prediction:
+                    st.markdown("## 🤖 AI Model Prediction")
+                    label = model_prediction['label']
+                    score = model_prediction['score']
+                    st.write(f"**Prediction:** {label}")
+                    st.write(f"**Confidence:** {score:.2f}")
+
+                    if label == "FAKE":
+                        st.error("This news is classified as FAKE by the AI model.")
+                    else:
+                        st.success("This news is classified as REAL by the AI model.")
+
+                if 'error' in search_result:
+                    st.error(f"Search API Error: {search_result['error']}")
                 else:
-                    # ... (Display results in Streamlit)
                     st.markdown("---")
                     st.markdown("## 🌐 Sources Checked During Verification")
-                    searched_domains = result.get('searched_domains', [])
+                    searched_domains = search_result.get('searched_domains', [])
                     if searched_domains:
                         for domain in searched_domains:
                             if domain in detector.verified_sources:
@@ -127,24 +147,33 @@ def main():
                     else:
                         st.warning("No sources found in the search results.")
 
-                    if 'trusted_sources' in result and result['trusted_sources']:
+                    if 'trusted_sources' in search_result and search_result['trusted_sources']:
                         st.success("✅ Verified by Trusted Sources")
-                        for source in result['trusted_sources']:
+                        for source in search_result['trusted_sources']:
                             st.write(f"- **{source['name']}** ({source['domain']}), Reliability: {source['reliability']:.2f}")
                     else:
                         st.warning("⚠️ No trusted sources verified this news.")
 
-                    if 'search_results' in result:
+                    if 'search_results' in search_result:
                         st.markdown("## 🔍 Top Search Results")
-                        for idx, res in enumerate(result['search_results']):
+                        for idx, res in enumerate(search_result['search_results']):
                             with st.expander(f"{idx+1}. {res['title']}"):
                                 st.write(f"**Source**: {res['source']}")
                                 st.write(f"**Snippet**: {res['snippet']}")
                                 st.write(f"**Link**: {res['link']}")
 
-            except Exception as e:
-                st.exception(e)  # Show detailed error for debugging
+                    # Optional News Source Tab
+                    if add_source and news_source:
+                        st.markdown("---")
+                        st.markdown("## 📰 Provided News Source")
+                        st.write(news_source)
 
+            except Exception as e:
+                st.exception(e)
+
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
