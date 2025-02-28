@@ -127,6 +127,10 @@ def main():
             st.error("Please enter some news text to verify.")
             return
 
+        if len(news_text.split()) < 5:  # Check if the text has at least 5 words
+            st.warning("Please enter a longer news article for accurate analysis.")
+            return
+
         with st.spinner("Analyzing news article..."):
             try:
                 model_prediction = detector.predict_news(news_text)
