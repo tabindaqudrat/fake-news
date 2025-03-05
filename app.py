@@ -27,6 +27,7 @@ class EnhancedNewsDetector:
             'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
             'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
             'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
+            'https://arynews.tv/': {'name': 'Ary News', 'reliability': 0.8},
         }
     def predict_news(self, news_text):  # This function MUST be in your class
         if self.classifier is None:
@@ -143,9 +144,9 @@ def main():
                     st.write(f"**Prediction:** {label}")
                     st.write(f"**Confidence:** {score:.2f}")
 
-                    if label == "FAKE":
+                    if label == "LABEL_0":
                         st.error("This news is classified as FAKE by the AI model.")
-                    else:
+                    elif label == "LABEL_1":
                         st.success("This news is classified as REAL by the AI model.")
 
                 if 'error' in search_result:
