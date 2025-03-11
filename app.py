@@ -27,7 +27,7 @@ class EnhancedNewsDetector:
             'geo.tv': {'name': 'Geo News', 'reliability': 0.85},
             'thenews.com.pk': {'name': 'The News', 'reliability': 0.85},
             'nation.com.pk': {'name': 'The Nation', 'reliability': 0.8},
-            'https://arynews.tv/': {'name': 'Ary News', 'reliability': 0.8},
+            'arynews.tv': {'name': 'Ary News', 'reliability': 0.8},
         }
     def predict_news(self, news_text):  # This function MUST be in your class
         if self.classifier is None:
